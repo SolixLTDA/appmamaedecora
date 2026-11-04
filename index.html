@@ -286,6 +286,9 @@ input[type=file]{min-height:unset;padding:8px;font-size:11px;}.two{display:grid;
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 
 
+#update-notice{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:12px;right:12px;z-index:1000;max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);box-shadow:0 8px 28px rgba(30,20,25,.16);font-size:11px;font-weight:700;}
+#update-notice[hidden]{display:none!important;}
+#update-notice button{flex:none;border:0;border-radius:9px;padding:9px 11px;background:var(--pri);color:var(--pri-ink);font-size:10px;font-weight:800;}
 /* Firebase authentication screen */
 #auth-gate{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(145deg,#f3f5f7,#e8edf3);font-family:Inter,system-ui,sans-serif;color:#16202b}
 #auth-gate[hidden]{display:none!important}.auth-card{width:min(100%,420px);background:#fff;border:1px solid #dde3e9;border-radius:24px;padding:30px;box-shadow:0 20px 60px #15243a1a}.auth-mark{width:54px;height:54px;display:grid;place-items:center;border-radius:16px;background:#1f3a5f;color:#fff;font-size:24px;margin-bottom:18px}.auth-card h1{font-size:25px;margin:0 0 7px}.auth-sub{color:#5e6b78;font-size:14px;margin:0 0 24px}.auth-label{display:block;font-size:13px;font-weight:700;margin:14px 0 6px}.auth-input{width:100%;border:1px solid #cfd7e0;border-radius:11px;padding:12px 13px;background:#fff;color:#16202b}.auth-primary{width:100%;border:0;border-radius:11px;background:#1f3a5f;color:#fff;font-weight:700;padding:13px;margin-top:18px}.auth-link{border:0;background:transparent;color:#1f3a5f;font-size:13px;font-weight:700;padding:12px 0 0}.auth-error{color:#b42318;font-size:13px;min-height:18px;margin-top:10px}.auth-note{font-size:11px;color:#7b8794;margin-top:18px;line-height:1.5}
@@ -308,6 +311,7 @@ input[type=file]{min-height:unset;padding:8px;font-size:11px;}.two{display:grid;
   <p class="auth-note">Acesso protegido. Para criar a conta inicial, cadastre o usuário no Firebase Authentication. A redefinição de senha será enviada por e-mail.</p>
  </form>
 </section>
+<div id="update-notice" role="status" aria-live="polite" hidden><span id="update-notice-text">Uma nova versão está disponível.</span><button type="button" id="update-apply">Atualizar agora</button></div>
 <main><header class='hd app-header'><div class='brand-wrap'><div class='brand' id='brand'>Mamãe Decora</div><div class='brand-sub'>GESTÃO DE LOCAÇÕES</div></div><div class='header-actions'><button class='gear install-control' id="install-app" data-act="install" hidden>Instalar app</button><button class='gear admin-control' data-act='admin'><span aria-hidden='true'>⚙</span><span>Configurações</span></button></div></header><h1 id="title"></h1><div class='search-wrap'><span class='search-icon' aria-hidden='true'>⌕</span><input id="q" type="search" placeholder="Buscar clientes, peças e aluguéis" autocomplete="off" aria-label="Buscar"></div><div id="view"></div></main>
 <button class="fab" id="fab" data-act="fab"></button>
 <nav id='nav'></nav>
@@ -316,10 +320,14 @@ input[type=file]{min-height:unset;padding:8px;font-size:11px;}.two{display:grid;
 <div id="offline-note" role="status" aria-live="polite" style="display:none;position:fixed;left:12px;right:12px;bottom:78px;z-index:8;max-width:536px;margin:0 auto;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;color:var(--mut);font-size:12px;box-shadow:0 2px 12px rgba(0,0,0,.12)">Modo offline: os dados ficam salvos somente neste navegador/dispositivo. Faça backups regularmente.</div>
 <script>
 const $=s=>document.querySelector(s),K='mamae-decora.v2',LEGACY_K='pegaemonte.v1';
+// Controle de versão do Mamãe Decora. Atualize este número junto com version.json a cada publicação.
+const APP_VERSION='1.0.0';
+let MD_RELEASE_INFO=null;
 let S={items:[],rentals:[]},tab='home',filter='open',draft=null,tmpPhoto=null,tt,categoryFilter='Todas',prefillClient=null;
 try{const r=localStorage.getItem(K)||localStorage.getItem(LEGACY_K);if(r)S=JSON.parse(r)}catch(e){}
 S.kits=S.kits||[];S.losses=S.losses||[];S.expenses=S.expenses||[];let sub='items',q='',cm=null,cd=null,rm=null;cfgInit();if(S.cfg.color==='#1F3A5F')S.cfg.color='#B84F72';if(S.cfg.tabs.cal==='Calendário')S.cfg.tabs.cal='Agenda';if(S.cfg.tabs.rep==='Relatório')S.cfg.tabs.rep='Financeiro';
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(S));if(window.__mdCloudSave)window.__mdCloudSave(S);return true}catch(e){toast('Não foi possível salvar: armazenamento cheio ou indisponível. Exporte um backup e reduza fotos.');return false}};
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S));window.__mdCurrentState=S;if(window.__mdCloudSave)window.__mdCloudSave(S);return true}catch(e){toast('Não foi possível salvar: armazenamento cheio ou indisponível. Exporte um backup e reduza fotos.');return false}};
+window.__mdCurrentState=S;
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
@@ -351,7 +359,7 @@ function rentalsView(){
   if(!list.length)return h+`<p class="empty">${filter==='open'?'Nenhum aluguel em aberto.<br>Toque em “+ Novo aluguel” para registrar o primeiro.':'Nenhum aluguel devolvido ainda.'}</p>`;
   return h+list.map(r=>{
     const [l,c]=status(r),n=r.lines.reduce((a,x)=>a+x.qty,0);
-    return `<button class="card st-${c}" data-act="open-r" data-id="${r.id}"><div class="grow"><div class="row"><b>${esc(r.client)}</b><span class="badge ${c}">${l}</span></div><div class="mut sm">${r.start>today()?'Retirada: '+fmt(r.start)+' · ':''}Devolução: ${fmt(r.end)}</div><div class="mut sm">${esc((r.kits||[]).map(k=>k.name+' ×'+k.qty).concat((r.singles||(r.kits&&r.kits.length?[]:r.lines)).map(x=>nameOf(x.id)+' ×'+x.qty)).join(', '))}</div><div class="row sm" style="margin-top:6px"><span class="mut">${n} ${n>1?'peças':'peça'}${(r.value-(r.paid||0))>0.009?' · falta '+money(r.value-(r.paid||0)):''}</span><b>${money(r.value)}</b></div></div></button>`}).join('');
+    return `<button class="card st-${c}" data-act="open-r" data-id="${r.id}"><div class="grow"><div class="row"><b>${esc(r.client)}</b><span class="badge ${c}">${l}</span></div><div class="mut sm">${r.start>today()?'Retirada: '+fmt(r.start)+' · ':''}Devolução: ${fmt(r.end)}</div><div class="mut sm">${esc((r.kits||[]).map(k=>k.name+' ×'+k.qty).concat((r.singles||(r.kits&&r.kits.length?[]:r.lines)).map(x=>nameOf(x.id)+' ×'+x.qty)).concat(r.balloonArch?['Arco de Bexigas (sob encomenda)']:[]).join(', '))}</div><div class="row sm" style="margin-top:6px"><span class="mut">${n} ${n>1?'peças':'peça'}${(r.value-(r.paid||0))>0.009?' · falta '+money(r.value-(r.paid||0)):''}</span><b>${money(r.value)}</b></div></div></button>`}).join('');
 }
 function stockView(){
   if(!S.items.length)return '<p class="empty">Nenhuma peça cadastrada.<br>Toque em “+ Nova peça” para começar o seu estoque.</p>';
@@ -403,7 +411,7 @@ function setReturned(id,v){
 const phoneDigits=p=>{const d=String(p||'').replace(/\D/g,'');return d&&d.length<=11?'55'+d:d};
 const wa=(r,t)=>'https://wa.me/'+phoneDigits(r&&r.phone)+(t?'?text='+encodeURIComponent(t):'');
 const rd=()=>({s:$('#r-start').value||today(),e:$('#r-end').value||today()});
-const backupBox=()=>`<div class='card' style='flex-direction:column;gap:8px'><b>Backup dos dados</b><span class='mut sm'>Os dados ficam neste navegador e não sincronizam entre dispositivos. Exporte o arquivo regularmente; ele inclui estoque, fotos e aluguéis. Restaurar substitui os dados atuais.</span><button class='btn ghost' data-act='bk-exp'>Salvar backup</button><div class='mut sm'>Restaurar backup:</div><input id='bk-file' type='file' accept='.json,application/json'></div>`;
+const backupBox=()=>`<div class='card' style='flex-direction:column;gap:8px'><b>Backup dos dados</b><span class='mut sm'>Quando você está conectado, os dados são sincronizados com sua conta pelo Firebase. O arquivo de backup é uma cópia extra para guardar com segurança; ele inclui estoque, fotos e aluguéis. Restaurar substitui os dados atuais.</span><button class='btn ghost' data-act='bk-exp'>Salvar backup</button><div class='mut sm'>Restaurar backup:</div><input id='bk-file' type='file' accept='.json,application/json'></div>`;
 function exportBk(){try{const payload={app:'Mamãe Decora',version:3,exportedAt:new Date().toISOString(),data:S};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='backup-mamae-decora-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Backup baixado')}catch(e){toast('Não consegui gerar o backup')}}
 function payRental(id){const r=S.rentals.find(x=>x.id===id),v=num($('#d-pay').value);if(!r||v===null||v<=0)return toast('Digite um valor recebido maior que zero');const rest=Math.max(0,(Number(r.value)||0)-(Number(r.paid)||0));if(v>rest+0.0001)return toast('O pagamento não pode ser maior que o saldo pendente ('+money(rest)+')');r.paid=(Number(r.paid)||0)+v;save();rentalDetail(id);render();toast('Pagamento registrado')}
 document.addEventListener('change',e=>{
@@ -460,33 +468,35 @@ function rentalSheet(){
 function step(id,d){const {s,e}=rd();if(d>0&&rem(id,s,e)<1)return;draft.lines[id]=Math.max(0,(draft.lines[id]||0)+d);pickRows()}
 function rkit(id,d){const {s,e}=rd(),k=S.kits.find(x=>x.id===id);if(d>0&&k.lines.some(l=>rem(l.id,s,e)<l.qty))return;draft.kits[id]=Math.max(0,(draft.kits[id]||0)+d);pickRows()}
 function saveRental(){
- const client=$('#r-client').value.trim(),{s:start,e:end}=rd(),value=num($('#r-val').value)||0,paid=num($('#r-paid').value)||0,phone=$('#r-phone').value.trim();
+ const client=$('#r-client').value.trim(),{s:start,e:end}=rd(),value=num($('#r-val').value)||0,paid=num($('#r-paid').value)||0,phone=$('#r-phone').value.trim(),archIncluded=$('#r-arch').checked,archValue=archIncluded?(num($('#r-arch-val').value)||0):0;
  const lines=expand(),singles=Object.entries(draft.lines).filter(([,q])=>q>0).map(([id,qty])=>({id,qty})),kits=Object.entries(draft.kits).filter(([,q])=>q>0).map(([id,qty])=>({id,qty,name:S.kits.find(x=>x.id===id).name}));
  if(!client)return toast('Digite o nome do cliente');
  if(value<0)return toast('O valor do aluguel não pode ser negativo');
  if(paid<0)return toast('O sinal não pode ser negativo');
  if(paid>value)return toast('O sinal não pode ser maior que o valor do aluguel');
- if(!lines.length)return toast('Escolha pelo menos um kit ou uma peça');
+ if(!lines.length&&!archIncluded)return toast('Escolha um kit, uma peça ou inclua o Arco de Bexigas');
+ if(archIncluded&&archValue<=0)return toast('Informe o valor do Arco de Bexigas');
+ if(archValue>value)return toast('O valor do Arco de Bexigas não pode ser maior que o valor total do aluguel');
  if(end<start)return toast('A devolução não pode ser antes do aluguel');
  if(lines.some(l=>l.qty>availR(l.id,start,end)))return toast('Algumas peças não estão disponíveis nessas datas');
- S.rentals.push({id:uid(),client,phone,start,end,value,paid,payments:paid>0?[{date:today(),amount:paid}]:[],lines,singles,kits,returned:false});
+ S.rentals.push({id:uid(),client,phone,start,end,value,paid,payments:paid>0?[{date:today(),amount:paid}]:[],lines,singles,kits,balloonArch:archIncluded?{name:'Arco de Bexigas',value:archValue}:null,returned:false});
  save();closeSheet();tab='rentals';filter='open';render();
 }
 function rentalDetail(id){
  const r=S.rentals.find(x=>x.id===id);if(!r)return;const [l,c]=status(r),rest=Math.max(0,r.value-(r.paid||0));
- const txt=`*${S.cfg.name}* - Recibo de aluguel\nCliente: ${r.client}\nRetirada: ${fmt(r.start)}\nDevolução: ${fmt(r.end)}\n`+((r.kits||[]).length?`Kits: ${r.kits.map(k=>k.name+' x'+k.qty).join(', ')}\n`:'')+`Peças:\n${r.lines.map(x=>'- '+nameOf(x.id)+' x'+x.qty).join('\n')}\nValor: ${money(r.value)}\nPago: ${money(r.paid||0)}\nFalta pagar: ${money(rest)}`+(S.cfg.foot?'\n\n'+S.cfg.foot:'');
+ const txt=`*${S.cfg.name}* - Recibo de aluguel\nCliente: ${r.client}\nRetirada: ${fmt(r.start)}\nDevolução: ${fmt(r.end)}\n`+((r.kits||[]).length?`Kits: ${r.kits.map(k=>k.name+' x'+k.qty).join(', ')}\n`:'')+`Peças:\n${r.lines.map(x=>'- '+nameOf(x.id)+' x'+x.qty).join('\n')}`+((r.balloonArch)?`\nServiço: Arco de Bexigas (sob encomenda) - ${money(r.balloonArch.value)}`:'')+`\nValor total: ${money(r.value)}\nPago: ${money(r.paid||0)}\nFalta pagar: ${money(rest)}`+(S.cfg.foot?'\n\n'+S.cfg.foot:'');
  sheet(`<h2>${esc(r.client)}</h2><span class='badge ${c}'>${l}</span>
  <dl class='kv'><div><dt>Aluguel</dt><dd>${fmt(r.start)}</dd></div><div><dt>Devolução</dt><dd>${fmt(r.end)}</dd></div><div><dt>Valor</dt><dd>${money(r.value)}</dd></div></dl>
  <dl class='kv'><div><dt>Pago</dt><dd>${money(r.paid||0)}</dd></div><div><dt>Falta</dt><dd>${money(rest)}</dd></div><div><dt>WhatsApp</dt><dd>${esc(r.phone||'-')}</dd></div></dl>
  ${rest>0?`<label class='f' style='margin-top:12px'>Receber agora (R$)<input id='d-pay' inputmode='decimal' placeholder='${rest.toFixed(2).replace('.',',')}'></label><button class='btn ghost' data-act='pay' data-id='${id}'>Registrar pagamento</button>`:''}
  ${(r.kits||[]).length?`<h3>Kits</h3>${r.kits.map(k=>`<div class='pick'><div class='thumb sm'>${th(S.kits.find(x=>x.id===k.id)||k)}</div><div class='grow'><b>${esc(k.name)}</b></div><b>×${k.qty}</b></div>`).join('')}`:''}
- <h3>Todas as peças</h3>${r.lines.map(x=>`<div class='pick'><div class='thumb sm'>${th(item(x.id))}</div><div class='grow'><b>${esc(nameOf(x.id))}</b></div>${r.returned?'':`<button class='lk' data-act='loss' data-id='${x.id}' data-r='${id}'>Perda</button>`}<b>×${x.qty}</b></div>`).join('')}
+ ${r.balloonArch?`<h3>Serviços sob encomenda</h3><div class='pick'><div class='grow'><b>Arco de Bexigas</b><div class='mut sm'>Feito sob pedido · não utiliza estoque</div></div><b>${money(r.balloonArch.value)}</b></div>`:''}<h3>Todas as peças</h3>${r.lines.map(x=>`<div class='pick'><div class='thumb sm'>${th(item(x.id))}</div><div class='grow'><b>${esc(nameOf(x.id))}</b></div>${r.returned?'':`<button class='lk' data-act='loss' data-id='${x.id}' data-r='${id}'>Perda</button>`}<b>×${x.qty}</b></div>`).join('')}
  <a class='btn ghost' href='${wa(r,txt)}' target='_blank' rel='noopener'>Enviar recibo no WhatsApp</a>
  ${r.returned?`<button class='btn ghost' data-act='unret' data-id='${id}'>Desfazer devolução</button>`:`<button class='btn pri' data-act='ret' data-id='${id}'>Marcar como devolvido</button>`}
  <button class='btn danger' data-act='del-r' data-id='${id}' data-arm='1'>Excluir aluguel</button>`);
 }
 const TT={rentals:'Aluguéis',stock:'Estoque',cal:'Calendário',rep:'Relatório'};
-const mR=r=>!q||(r.client+' '+(r.kits||[]).map(k=>k.name).join(' ')+' '+r.lines.map(l=>nameOf(l.id)).join(' ')).toLowerCase().includes(q);
+const mR=r=>!q||(r.client+' '+(r.kits||[]).map(k=>k.name).join(' ')+' '+r.lines.map(l=>nameOf(l.id)).join(' ')+' '+(r.balloonArch?'Arco de Bexigas':'' )).toLowerCase().includes(q);
 const mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const shiftM=(m,n)=>{const [y,mo]=m.split('-').map(Number),d=new Date(y,mo-1+n,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
 const mHead=(m,pa,na)=>`<div class='mh'><button data-act='${pa}' aria-label='Mês anterior'>‹</button><b>${mn[+m.slice(5)-1]} de ${m.slice(0,4)}</b><button data-act='${na}' aria-label='Próximo mês'>›</button></div>`;
@@ -559,6 +569,7 @@ function pinOk(){if($('#pin-in').value===S.cfg.pin)adminSheet();else toast('PIN 
 function adminSheet(){
  const c=S.cfg;
  sheet(`<h2>Admin</h2>
+ <h3>Aplicativo</h3><div class='note'><b>Mamãe Decora · versão ${APP_VERSION}</b><div class='mut sm' style='margin-top:4px'>Consulte as novidades ou procure uma atualização disponível.</div></div><button class='btn ghost' data-act='updates-open'>Ver histórico de novidades</button><button class='btn ghost' data-act='updates-check'>Verificar atualizações</button>
  <h3>Empresa</h3><label class='f'>Nome da empresa<input id='a-name' value='${esc(c.name)}'></label>
  <h3>Cor do app</h3><div class='sw'>${SW.map(([n,h])=>`<button class='swb' style='background:${h}' data-act='swatch' data-c='${h}' aria-label='${n}'></button>`).join('')}<input id='a-color' type='color' value='${c.color}'></div>
  <h3>Abas</h3>${[['rentals','Aluguéis'],['stock','Estoque'],['cal','Agenda'],['rep','Financeiro']].map(([k,d])=>`<label class='f'>Nome da aba ${d}<input id='a-t-${k}' value='${esc(c.tabs[k])}'></label>`).join('')}
@@ -568,7 +579,7 @@ function adminSheet(){
  <button class='btn ghost' data-act='add-x'>+ Adicionar aba de texto</button>
  <h3>Horário de devolução</h3><div class='two'><label class='f'>Das<input id='a-from' type='time' value='${c.ret.from}'></label><label class='f'>Às<input id='a-to' type='time' value='${c.ret.to}'></label></div>
  <h3>Recibo</h3><label class='f'>Texto no final do recibo (regras, multa por atraso...)<textarea id='a-foot' rows='4'>${esc(c.foot)}</textarea></label>
- <h3>Acesso local</h3><p class='mut sm'>O PIN é apenas uma barreira contra abertura acidental; não protege os dados de alguém com acesso ao navegador. Os dados ficam neste dispositivo, sem login ou sincronização.</p><label class='f'>PIN do admin (vazio = sem PIN)<input id='a-pin' inputmode='numeric' value='${esc(c.pin)}'></label>
+ <h3>Acesso local</h3><p class='mut sm'>O PIN é uma proteção adicional para abrir as configurações administrativas neste navegador. Ele não substitui o login do Firebase nem as regras de segurança do Firestore.</p><label class='f'>PIN do admin (vazio = sem PIN)<input id='a-pin' inputmode='numeric' value='${esc(c.pin)}'></label>
  <button class='btn pri' data-act='save-adm'>Salvar</button>`);
 }
 function admRead(){
@@ -635,7 +646,7 @@ function stockView(){
    if(!filtered.length)h+=`<div class="empty-state"><span class="empty-symbol">◇</span><b>${S.items.length?'Nenhuma peça encontrada':'Seu estoque começa aqui'}</b><p>${S.items.length?'Experimente outra busca ou categoria.':'Cadastre suas primeiras peças para acompanhar quantidades, fotos e disponibilidade.'}</p><button class="btn pri compact-btn" data-act="fab">＋ Nova peça</button></div>`;
    else h+=`<div class="inventory-grid">${filtered.map(i=>{const o=out(i.id),a=avail(i.id),cat=i.category||'Sem categoria';return `<button class="inventory-card" data-act="edit-i" data-id="${i.id}"><div class="inventory-photo ${i.photo?'has-photo':''}">${th(i)}<span class="availability-tag ${a<=0?'unavailable':a<=1?'low-stock':'available'}">${a<=0?'Indisponível':a<=1?'Última peça':'Disponível'}</span></div><div class="inventory-info"><span class="inventory-category">${esc(cat)}</span><b>${esc(i.name)}</b><div class="inventory-qty"><span>${a} disponível(is)</span><span>${i.qty} total</span></div><div class="inventory-bar"><i style="width:${i.qty?Math.min(100,Math.max(0,a/i.qty*100)):0}%"></i></div>${o>0?`<small class="inventory-note">${o} com clientes</small>`:`<small class="inventory-note">Pronta para a próxima celebração</small>`}</div></button>`}).join('')}</div>`;
  } else h+=kitsView();
- h+=`<details class="backup-panel"><summary><span class="backup-symbol">↥</span><span><b>Backup e restauração</b><small>Guarde uma cópia dos seus dados com segurança.</small></span><span class="row-chevron">›</span></summary><div class="backup-content"><p>Os dados ficam neste navegador e não sincronizam entre dispositivos. Recomendamos exportar um arquivo regularmente. Restaurar substitui os dados atuais.</p><button class="btn ghost" data-act="bk-exp">Baixar backup</button><label class="f backup-upload">Restaurar um arquivo JSON<input id="bk-file" type="file" accept=".json,application/json"></label></div></details>`;
+ h+=`<details class="backup-panel"><summary><span class="backup-symbol">↥</span><span><b>Backup e restauração</b><small>Guarde uma cópia dos seus dados com segurança.</small></span><span class="row-chevron">›</span></summary><div class="backup-content"><p>Quando você está conectado, os dados são sincronizados com sua conta pelo Firebase. Recomendamos também exportar um backup regularmente. Restaurar substitui os dados atuais.</p><button class="btn ghost" data-act="bk-exp">Baixar backup</button><label class="f backup-upload">Restaurar um arquivo JSON<input id="bk-file" type="file" accept=".json,application/json"></label></div></details>`;
  return h;
 }
 function itemSheet(id){
@@ -664,7 +675,7 @@ function clientDetail(id){
 }
 function rentalSheet(){
  draft={lines:{},kits:{}};const t=today(),pre=prefillClient;prefillClient=null;
- sheet(`<h2>Novo aluguel</h2><p class="modal-intro">Preencha o período e selecione as peças ou kits para verificar a disponibilidade.</p><label class='f'>Nome do cliente<input id='r-client' value='${esc(pre?.client||'')}' placeholder='Ex.: Maria Souza' autocomplete='off'></label><label class='f'>WhatsApp do cliente (opcional)<input id='r-phone' value='${esc(pre?.phone||'')}' type='tel' inputmode='tel' placeholder='(18) 99999-9999'></label><div class='two'><label class='f'>Data de retirada<input id='r-start' type='date' value='${t}'></label><label class='f'>Data de devolução<input id='r-end' type='date' value='${addDays(t,1)}'></label></div><div class='two'><label class='f'>Valor total do aluguel (R$)<input id='r-val' inputmode='decimal' placeholder='0,00'></label><label class='f'>Sinal recebido (R$)<input id='r-paid' inputmode='decimal' placeholder='0,00'></label></div><div class="selection-section"><h3>Kits</h3><div id='kpicks'></div><h3>Peças avulsas</h3><div id='picks'></div></div><p class='tot'>Total selecionado: <span id='tot'>0</span> peças</p><button class='btn pri' data-act='save-r'>Registrar aluguel</button>`);
+ sheet(`<h2>Novo aluguel</h2><p class="modal-intro">Preencha o período e selecione as peças ou kits para verificar a disponibilidade.</p><label class='f'>Nome do cliente<input id='r-client' value='${esc(pre?.client||'')}' placeholder='Ex.: Maria Souza' autocomplete='off'></label><label class='f'>WhatsApp do cliente (opcional)<input id='r-phone' value='${esc(pre?.phone||'')}' type='tel' inputmode='tel' placeholder='(18) 99999-9999'></label><div class='two'><label class='f'>Data de retirada<input id='r-start' type='date' value='${t}'></label><label class='f'>Data de devolução<input id='r-end' type='date' value='${addDays(t,1)}'></label></div><div class='two'><label class='f'>Valor total do aluguel (R$)<input id='r-val' inputmode='decimal' placeholder='0,00'></label><label class='f'>Sinal recebido (R$)<input id='r-paid' inputmode='decimal' placeholder='0,00'></label></div><section class='panel' style='padding:14px;margin:14px 0'><label style='display:flex;align-items:center;gap:10px;font-weight:700'><input id='r-arch' type='checkbox' style='width:18px;height:18px'> Incluir Arco de Bexigas (sob encomenda)</label><label class='f' style='margin-top:10px'>Valor do serviço (R$)<input id='r-arch-val' inputmode='decimal' placeholder='0,00'></label><p class='mut sm' style='margin:4px 0 0'>Serviço feito sob pedido. Não faz parte do estoque e não altera a disponibilidade das peças.</p></section><div class="selection-section"><h3>Kits</h3><div id='kpicks'></div><h3>Peças avulsas</h3><div id='picks'></div></div><p class='tot'>Total selecionado: <span id='tot'>0</span> peças</p><button class='btn pri' data-act='save-r'>Registrar aluguel</button>`);
  pickRows();
 }
 function payRental(id){
@@ -705,6 +716,61 @@ function renderView(){
  const v=$('#view');if(tab==='home')v.innerHTML=homeView();else if(tab==='rentals')v.innerHTML=rentalsView();else if(tab==='stock')v.innerHTML=stockView();else if(tab==='clients')v.innerHTML=clientsView();else if(tab==='cal')v.innerHTML=calView();else if(tab==='rep')v.innerHTML=repView();else v.innerHTML=xView();
 }
 
+const compareAppVersions=(a,b)=>{
+ const aa=String(a||'0').split('.').map(x=>parseInt(x,10)||0),bb=String(b||'0').split('.').map(x=>parseInt(x,10)||0);
+ for(let i=0;i<Math.max(aa.length,bb.length);i++){const x=aa[i]||0,y=bb[i]||0;if(x!==y)return x>y?1:-1;}return 0;
+};
+function renderUpdateNotice(info){
+ const box=$('#update-notice'),label=$('#update-notice-text');
+ if(!box||!label)return;
+ if(info&&compareAppVersions(info.version,APP_VERSION)>0){
+  label.textContent=`Nova versão disponível: ${info.version} (instalada: ${APP_VERSION}).`;
+  box.hidden=false;
+ }else box.hidden=true;
+}
+async function checkForAppUpdates(showResult=false){
+ try{
+  const response=await fetch(`./version.json?check=${Date.now()}`,{cache:'no-store'});
+  if(!response.ok)throw new Error('Não foi possível consultar a versão publicada.');
+  const info=await response.json();
+  if(!info.version)throw new Error('Arquivo de versão inválido.');
+  MD_RELEASE_INFO=info;renderUpdateNotice(info);
+  if(showResult){
+   if(compareAppVersions(info.version,APP_VERSION)>0)toast(`Nova versão ${info.version} disponível.`);
+   else toast(`Seu aplicativo já está atualizado · versão ${APP_VERSION}.`);
+  }
+  return info;
+ }catch(error){
+  if(showResult)toast('Não foi possível verificar atualizações. Confira sua conexão.');
+  return null;
+ }
+}
+function updatesHistorySheet(){
+ const info=MD_RELEASE_INFO;
+ if(!info){toast('Verifique as atualizações primeiro.');return;}
+ const releases=Array.isArray(info.releases)&&info.releases.length?info.releases:[info];
+ const rows=releases.map(r=>`<section class="panel" style="margin:12px 0;padding:14px"><div class="row"><b>${esc(r.title||'Atualização do Mamãe Decora')}</b><span class="badge pri">v${esc(r.version||info.version)}</span></div><p class="mut sm" style="margin:6px 0 8px">${esc(r.date||r.releasedAt||'')}</p><ul style="padding-left:18px;margin:0">${(Array.isArray(r.notes)?r.notes:[]).map(n=>`<li class="sm" style="margin:5px 0">${esc(n)}</li>`).join('')}</ul></section>`).join('');
+ sheet(`<h2>Novidades do aplicativo</h2><p class="modal-intro">Versão instalada: ${APP_VERSION} · Versão publicada: ${esc(info.version)}</p>${rows||'<p class="mut sm">Nenhuma novidade cadastrada.</p>'}<button class="btn ghost" data-act="updates-check">Verificar novamente</button>`);
+}
+async function applyAvailableUpdate(){
+ const button=$('#update-apply');if(button){button.disabled=true;button.textContent='Salvando…';}
+ try{
+  if(typeof window.__mdFlushCloudSave==='function')await window.__mdFlushCloudSave();
+  if('serviceWorker' in navigator){
+   const registration=await navigator.serviceWorker.getRegistration();
+   if(registration)await registration.update();
+  }
+  if(button)button.textContent='Abrindo atualização…';
+  location.reload();
+ }catch(error){
+  if(button){button.disabled=false;button.textContent='Tentar novamente';}
+  toast('Não foi possível concluir a atualização. Seus dados foram mantidos. Tente novamente com conexão estável.');
+ }
+}
+$('#update-apply')?.addEventListener('click',applyAvailableUpdate);
+window.addEventListener('online',()=>checkForAppUpdates(false));
+window.addEventListener('load',()=>checkForAppUpdates(false));
+
 document.addEventListener('click',e=>{
   if(e.target.id==='ov')return closeSheet();
   if(e.target.closest('#brand')){tab='home';q='';$('#q').value='';render();return;}
@@ -715,7 +781,7 @@ document.addEventListener('click',e=>{
     fab:()=>tab==='rentals'?rentalSheet():sub==='kits'?kitSheet():itemSheet(),'edit-i':()=>itemSheet(id),'save-i':()=>saveItem(id),'del-i':()=>delItem(id),
     'open-r':()=>rentalDetail(id),step:()=>step(id,+b.dataset.d),'save-r':saveRental,ret:()=>setReturned(id,true),unret:()=>setReturned(id,false),
     'del-r':()=>{S.rentals=S.rentals.filter(r=>r.id!==id);save();closeSheet();render()},
-    'go-stock':()=>{closeSheet();tab='stock';render();itemSheet()},'bk-exp':exportBk,install:installApp,'notify-open':notifySheet,'notify-done':()=>markNotified(id),admin:adminOpen,'pin-ok':pinOk,swatch:()=>{$('#a-color').value=b.dataset.c;document.documentElement.style.setProperty('--pri',b.dataset.c)},'add-x':()=>{admRead();S.cfg.extra.push({id:uid(),name:'Nova aba',text:''});save();adminSheet()},'del-x':()=>{admRead();S.cfg.extra=S.cfg.extra.filter(x=>x.id!==id);save();adminSheet()},'save-adm':()=>{admRead();closeSheet();render();toast('Configurações salvas')},cprev:()=>{cm=shiftM(cm,-1);cd=null;renderView()},cnext:()=>{cm=shiftM(cm,1);cd=null;renderView()},day:()=>{cd=id;renderView()},rprev:()=>{rm=shiftM(rm,-1);renderView()},rnext:()=>{rm=shiftM(rm,1);renderView()},loss:()=>lossSheet(id,b.dataset.r),'save-l':()=>saveLoss(id,b.dataset.r),sub:()=>{sub=b.dataset.s;render()},'edit-k':()=>kitSheet(id),'save-k':()=>saveKit(id),'del-k':()=>{S.kits=S.kits.filter(k=>k.id!==id);save();closeSheet();render()},kstep:()=>kstep(id,+b.dataset.d),rkit:()=>rkit(id,+b.dataset.d),pay:()=>payRental(id)})[b.dataset.act]?.();
+    'go-stock':()=>{closeSheet();tab='stock';render();itemSheet()},'bk-exp':exportBk,install:installApp,'notify-open':notifySheet,'notify-done':()=>markNotified(id),admin:adminOpen,'pin-ok':pinOk,swatch:()=>{$('#a-color').value=b.dataset.c;document.documentElement.style.setProperty('--pri',b.dataset.c)},'add-x':()=>{admRead();S.cfg.extra.push({id:uid(),name:'Nova aba',text:''});save();adminSheet()},'del-x':()=>{admRead();S.cfg.extra=S.cfg.extra.filter(x=>x.id!==id);save();adminSheet()},'updates-open':updatesHistorySheet,'updates-check':()=>checkForAppUpdates(true),'save-adm':()=>{admRead();closeSheet();render();toast('Configurações salvas')},cprev:()=>{cm=shiftM(cm,-1);cd=null;renderView()},cnext:()=>{cm=shiftM(cm,1);cd=null;renderView()},day:()=>{cd=id;renderView()},rprev:()=>{rm=shiftM(rm,-1);renderView()},rnext:()=>{rm=shiftM(rm,1);renderView()},loss:()=>lossSheet(id,b.dataset.r),'save-l':()=>saveLoss(id,b.dataset.r),sub:()=>{sub=b.dataset.s;render()},'edit-k':()=>kitSheet(id),'save-k':()=>saveKit(id),'del-k':()=>{S.kits=S.kits.filter(k=>k.id!==id);save();closeSheet();render()},kstep:()=>kstep(id,+b.dataset.d),rkit:()=>rkit(id,+b.dataset.d),pay:()=>payRental(id)})[b.dataset.act]?.();
 });
 document.addEventListener('change',e=>{
   if(!['file','cam'].includes(e.target.id)||!e.target.files[0])return;
@@ -764,12 +830,19 @@ const showError=(message)=>{errorBox.textContent=message;};
 const app=initializeApp(firebaseConfig); auth=getAuth(app); db=getFirestore(app);
 const cloudDocFor = uid => doc(db,'users',uid,'appData','main');
 window.__mdCloudSave = data => {
+  window.__mdCurrentState=data;
   if(!auth?.currentUser || applyingRemote) return;
   clearTimeout(saveTimer);
   saveTimer=setTimeout(async()=>{
     try { await setDoc(cloudDocFor(auth.currentUser.uid), { state:data, updatedAt:Date.now() }); }
     catch(e) { console.error('Falha ao sincronizar Mamãe Decora:',e); const n=document.getElementById('offline-note'); if(n){n.textContent='Não foi possível sincronizar com a nuvem. Confira sua conexão e as regras do Firestore.';n.style.display='block';} }
   },600);
+};
+window.__mdFlushCloudSave = async () => {
+  clearTimeout(saveTimer);
+  if(!auth?.currentUser || !window.__mdCurrentState || applyingRemote) return;
+  try { await setDoc(cloudDocFor(auth.currentUser.uid), { state:window.__mdCurrentState, updatedAt:Date.now() }); }
+  catch(e) { console.error('Falha ao concluir salvamento antes da atualização:',e); throw e; }
 };
 onAuthStateChanged(auth, async user=>{
   if(stopCloud){stopCloud();stopCloud=null;}
@@ -779,7 +852,7 @@ onAuthStateChanged(auth, async user=>{
   try {
     const snap=await getDoc(ref);
     if(snap.exists() && snap.data()?.state){
-      applyingRemote=true; S=snap.data().state; try{localStorage.setItem(K,JSON.stringify(S));}catch(e){}; applyingRemote=false;
+      applyingRemote=true; S=snap.data().state; window.__mdCurrentState=S; try{localStorage.setItem(K,JSON.stringify(S));}catch(e){}; applyingRemote=false;
       if(typeof render==='function') render();
     } else {
       await setDoc(ref,{state:S,updatedAt:Date.now()});
@@ -789,7 +862,7 @@ onAuthStateChanged(auth, async user=>{
       const remote=snapshot.data().state;
       if(Number(snapshot.data().updatedAt||0) > window.__mdLastCloudUpdate && !applyingRemote){
         window.__mdLastCloudUpdate=Number(snapshot.data().updatedAt||0);
-        applyingRemote=true; S=remote; try{localStorage.setItem(K,JSON.stringify(S));}catch(e){}; applyingRemote=false;
+        applyingRemote=true; S=remote; window.__mdCurrentState=S; try{localStorage.setItem(K,JSON.stringify(S));}catch(e){}; applyingRemote=false;
         if(typeof render==='function') render();
       }
     },err=>{console.error(err);const n=document.getElementById('offline-note');if(n){n.textContent='Sincronização indisponível. Verifique as regras do Firestore.';n.style.display='block';}});
