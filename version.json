@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "releasedAt": "2026-11-04",
+  "title": "Controle de versões ativado",
+  "notes": [
+    "O aplicativo passa a exibir a versão instalada.",
+    "Foi adicionado o histórico de novidades nas configurações.",
+    "O aplicativo verifica se existe uma versão mais recente e avisa antes de atualizar.",
+    "Antes de recarregar, o aplicativo tenta concluir a sincronização dos dados com o Firebase."
+  ],
+  "releases": [
+    {
+      "version": "1.0.0",
+      "date": "04/11/2026",
+      "title": "Controle de versões ativado",
+      "notes": [
+        "O aplicativo passa a exibir a versão instalada.",
+        "Foi adicionado o histórico de novidades nas configurações.",
+        "O aplicativo verifica se existe uma versão mais recente e avisa antes de atualizar.",
+        "Antes de recarregar, o aplicativo tenta concluir a sincronização dos dados com o Firebase."
+      ]
+    }
+  ]
+}
